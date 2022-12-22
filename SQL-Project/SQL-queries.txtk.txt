@@ -1,0 +1,93 @@
+Q1: What are the total rental orders for each film category ?
+
+SELECT c.name category,  
+       count(rental_id) total_rental
+FROM 
+     category c
+JOIN film_category fc
+ON c.category_id = fc.category_id
+JOIN film f
+ON f.film_id = fc.film_id 
+JOIN inventory i
+ON i.film_id = f.film_id 
+JOIN rental r
+ON r.inventory_id = i.inventory_id
+GROUP BY c.name
+ORDER BY total_rental desc
+
+
+----------------------------------------------------------------------------
+
+Q2: how the length of rental duration of these family-friendly movies compares to the duration that all movies are rented for?
+
+SELECT title, 
+       name, 
+       rental_duration,
+       NTILE(4) OVER (partition BY name ORDER BY rental_duration ) AS standard_quartile
+FROM
+    (SELECT f.title title, 
+            c.name , 
+            f.rental_duration rental_duration 
+    FROM 
+        category c
+    JOIN film_category fc
+    ON c.category_id = fc.category_id
+    JOIN film f
+    ON f.film_id = fc.film_id
+    WHERE c.name IN ('Animation', 'Children', 'Classics', 'Comedy', 'Family', 'Music')) t1
+    ORDER BY 3
+
+----------------------------------------------------------------------------
+
+Q3:  What the count of films within each combination of film category for each corresponding rental duration category?
+
+SELECT t1.name, 
+       t1.standard_quartile, 
+       COUNT(t1.standard_quartile) 	
+FROM 	
+    (SELECT f.title, 
+            c.name, 
+            f.rental_duration, 
+            NTILE(4) OVER (ORDER BY f.rental_duration) AS standard_quartile	
+     FROM 
+         film_category fc 
+     JOIN category c 
+     ON c.category_id = fc.category_id 	
+     JOIN film f 	
+     ON f.film_id = fc.film_id 	
+     WHERE c.name IN ('Animation', 'Children', 'Classics', 'Comedy', 'Family', 'Music')) t1 	
+     GROUP BY 1, 2 	
+     ORDER BY 1, 2
+
+
+----------------------------------------------------------------------------
+
+Q4: How many films have been rented by each staff and what is the total amount ?
+
+WITH t1 AS (
+SELECT s.first_name || ' ' || s.last_name AS full_name, 
+       COUNT(r.rental_id) total_rental
+FROM staff s
+JOIN rental r
+ON s.staff_id = r.staff_id
+GROUP BY full_name),
+     
+     t2 AS ( 
+SELECT s.first_name || ' ' || s.last_name AS full_name, 
+       COUNT(r.rental_id) total_rental, 
+       SUM(p.amount) total_amount
+FROM staff s
+JOIN rental r
+ON s.staff_id = r.staff_id
+JOIN payment p
+ON r.rental_id = p.rental_id
+GROUP BY full_name)
+
+   SELECT t1.full_name,
+          t1.total_rental,
+          t2.total_amount
+          FROM t1
+          JOIN t2
+          ON t1.full_name = t2.full_name
+
+
